@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>番茄时钟</title>
+  <style>
+    /* ========== 整体布局：适合手机竖屏 ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #F4E9CD; /* 米黄色主色调 */
+      padding: 24px 0;
+    }
+
+    .container {
+      width: 90%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    /* ========== 标题（柠檬黄块 + 黑边框 + 硬偏移阴影） ========== */
+    h1 {
+      display: inline-block;
+      font-size: 30px;
+      font-weight: 900;
+      color: #111;
+      letter-spacing: 4px;
+      margin-bottom: 24px;
+      padding: 8px 18px;
+      background: #FFD23F;         /* 柠檬黄 */
+      border: 3px solid #111;      /* 粗黑边框 */
+      box-shadow: 6px 6px 0 #111;  /* 纯色硬偏移阴影（活版印刷错位感） */
+      transform: rotate(-2deg);
+    }
+
+    /* ========== 番茄卡片（钟面） ========== */
+    .card {
+      background: #fff;
+      border: 3px solid #111;
+      border-radius: 16px;
+      padding: 30px 20px;
+      box-shadow: 10px 10px 0 #111; /* 不模糊的硬阴影 */
+      position: relative;
+    }
+
+    /* 装饰：左上角黑色十字 */
+    .card::before {
+      content: "+";
+      position: absolute;
+      left: -14px;
+      top: -18px;
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1;
+      color: #111;
+    }
+
+    /* 装饰：右下角葡萄紫圆点 */
+    .card::after {
+      content: "";
+      position: absolute;
+      right: -14px;
+      bottom: -14px;
+      width: 28px;
+      height: 28px;
+      background: #9B5DE5; /* 葡萄紫 */
+      border: 3px solid #111;
+      border-radius: 50%;
+    }
+
+    /* 番茄造型：珊瑚橙圆形 */
+    .tomato {
+      width: 190px;
+      height: 190px;
+      margin: 14px auto 22px;
+      border-radius: 50%;
+      background: #FF6B4A; /* 珊瑚橙 */
+      border: 3px solid #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 7px 7px 0 #111;
+      position: relative; /* 让 ::before 叶子定位以番茄为基准 */
+    }
+
+    /* 番茄顶部叶子 */
+    .tomato::before {
+      content: "🍃";
+      font-size: 30px;
+      position: absolute;      /* 相对 .tomato 定位 */
+      top: -26px;              /* 放在番茄顶部上方 */
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* 倒计时文字（白底黑字小牌） */
+    .time {
+      display: inline-block;
+      font-size: 48px;
+      font-weight: 900;
+      color: #111;
+      letter-spacing: 2px;
+      font-variant-numeric: tabular-nums; /* 数字等宽，跳动时不抖 */
+      background: #fff;
+      border: 3px solid #111;
+      border-radius: 10px;
+      padding: 6px 14px;
+      box-shadow: 4px 4px 0 #FFD23F; /* 柠檬黄硬阴影 */
+    }
+
+    /* 当前模式提示（薄荷绿标签） */
+    .mode {
+      display: inline-block;
+      font-size: 16px;
+      font-weight: 900;
+      color: #111;
+      background: #7BD389; /* 薄荷绿 */
+      border: 3px solid #111;
+      padding: 6px 18px;
+      margin-bottom: 18px;
+      box-shadow: 4px 4px 0 #111;
+    }
+
+    /* 进度条 */
+    .progress-bar {
+      width: 100%;
+      height: 16px;
+      border: 3px solid #111;
+      background: #fff;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      box-shadow: 3px 3px 0 #111;
+    }
+
+    .progress-inner {
+      height: 100%;
+      width: 100%;
+      background: #9B5DE5; /* 葡萄紫进度条 */
+      transition: width 1s linear; /* 进度随秒平滑变化 */
+    }
+
+    /* 时间到的提示文字 */
+    .message {
+      height: 22px;
+      font-size: 15px;
+      font-weight: 900;
+      color: #111;
+      margin-bottom: 14px;
+    }
+
+    /* ========== 时长设置区 ========== */
+    .settings {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .setting-item {
+      flex: 1;
+      text-align: left;
+    }
+
+    .setting-item label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #111;
+      margin-bottom: 4px;
+    }
+
+    .setting-item input {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 16px;
+      font-weight: 700;
+      text-align: center;
+      border: 3px solid #111;
+      border-radius: 8px;
+      outline: none;
+      background: #fff;
+    }
+
+    .setting-item input:focus {
+      box-shadow: 3px 3px 0 #FFD23F; /* 聚焦时柠檬黄硬阴影 */
+    }
+
+    .btn-apply {
+      background: #FF6B4A; /* 珊瑚橙 */
+      width: 76px;
+      flex: none;
+      color: #fff;
+    }
+
+    /* ========== 按钮区 ========== */
+    .buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+    }
+
+    /* 按钮：粗黑边框 + 硬偏移阴影，按下会真的往下沉 */
+    .btn {
+      flex: 1;
+      padding: 14px 0;
+      font-size: 18px;
+      font-weight: 900;
+      color: #fff;
+      border: 3px solid #111;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #111; /* 阴影位置 = 按钮的“厚度” */
+      transition: transform 0.06s, box-shadow 0.06s;
+    }
+
+    /* 按压反馈：按钮整体下移，阴影消失，像真的被按进去 */
+    .btn:active {
+      transform: translate(4px, 4px);
+      box-shadow: 0 0 0 #111;
+    }
+
+    .btn:focus-visible {
+      outline: 3px dashed #111;
+      outline-offset: 2px;
+    }
+
+    .btn-start { background: #7BD389; color: #111; } /* 薄荷绿 */
+    .btn-pause { background: #FFD23F; color: #111; } /* 柠檬黄 */
+    .btn-reset { background: #9B5DE5; }              /* 葡萄紫 */
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🍅 番茄时钟</h1>
+    <div class="card">
+      <div class="tomato">
+        <div class="time" id="timeDisplay">25:00</div>
+      </div>
+      <div class="mode" id="modeText">专注时间</div>
+      <div class="progress-bar"><div class="progress-inner" id="progressInner"></div></div>
+      <div class="message" id="message">&nbsp;</div>
+      <div class="settings">
+        <div class="setting-item">
+          <label for="focusMin">专注（分钟）</label>
+          <input type="number" id="focusMin" min="1" max="120" value="25">
+        </div>
+        <div class="setting-item">
+          <label for="breakMin">休息（分钟）</label>
+          <input type="number" id="breakMin" min="1" max="120" value="5">
+        </div>
+        <button class="btn btn-apply" id="btnApply">应用</button>
+      </div>
+      <div class="buttons">
+        <button class="btn btn-start" id="btnStart">开始</button>
+        <button class="btn btn-pause" id="btnPause">暂停</button>
+        <button class="btn btn-reset" id="btnReset">重置</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 状态变量 ==========
+    let FOCUS_TIME = 25 * 60; // 专注时间（秒），默认 25 分钟，可通过设置修改
+    let BREAK_TIME = 5 * 60;  // 休息时间（秒），默认 5 分钟
+
+    let totalSeconds = FOCUS_TIME;  // 当前剩余总秒数
+    let currentMode = 'focus';      // 当前模式：focus 专注 / break 休息
+    let isRunning = false;          // 是否正在倒计时
+    let endTime = null;             // 本次倒计时的结束时间戳（用于精确计时）
+    let timerId = null;             // 定时器 id，用于暂停时清除
+
+    // 获取页面元素
+    const timeDisplay = document.getElementById('timeDisplay');
+    const modeText = document.getElementById('modeText');
+    const progressInner = document.getElementById('progressInner');
+    const message = document.getElementById('message');
+    const focusInput = document.getElementById('focusMin');
+    const breakInput = document.getElementById('breakMin');
+
+    // 当前模式对应的总时长（秒），用于计算进度比例
+    function modeTotal() {
+      return currentMode === 'focus' ? FOCUS_TIME : BREAK_TIME;
+    }
+
+    // ========== 更新页面显示 ==========
+    function updateDisplay() {
+      const minutes = Math.floor(totalSeconds / 60); // 分钟
+      const seconds = totalSeconds % 60;             // 秒
+      // padStart 补零，例如 5 秒 -> "05"，分钟也补零保持整齐
+      timeDisplay.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+      // 更新进度条：剩余时间 ÷ 当前模式总时长
+      const percent = (totalSeconds / modeTotal()) * 100;
+      progressInner.style.width = percent + '%';
+    }
+
+    // ========== 合成提醒音效（叮咚） ==========
+    let audioCtx = null; // 音频上下文，首次使用才创建
+
+    function playDing() {
+      // 浏览器要求先有用户点击，才能播放声音；
+      // start() 是在点击「开始」时调用的，所以在这里首次创建没问题
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume(); // 恢复被暂停的音频
+
+      // 发出一个指定音高的短音，startTime 用来控制两声的先后
+      function beep(freq, startTime) {
+        const osc = audioCtx.createOscillator();       // 振荡器：产生音波
+        const gain = audioCtx.createGain();            // 音量控制器
+        osc.type = 'sine';                             // 波形：正弦，声音柔和
+        osc.frequency.value = freq;                    // 音高（赫兹）
+        gain.gain.setValueAtTime(0, startTime);        // 开始音量 0（无爆音）
+        gain.gain.linearRampToValueAtTime(0.5, startTime + 0.02); // 快速渐强
+        gain.gain.linearRampToValueAtTime(0.001, startTime + 0.3); // 慢慢渐弱
+        osc.connect(gain);                             // 音频连到音量控制器
+        gain.connect(audioCtx.destination);            // 再连到扬声器
+        osc.start(startTime);                          // 开始发声
+        osc.stop(startTime + 0.35);                    // 0.35 秒后停止
+      }
+
+      const now = audioCtx.currentTime;
+      beep(880, now);       // 第一声「叮」：880Hz（高音）
+      beep(660, now + 0.4); // 第二声「咚」：660Hz（低音），隔 0.4 秒
+    }
+
+    // ========== 开始倒计时 ==========
+    function start() {
+      if (isRunning) return;      // 已在运行则不重复启动
+      isRunning = true;
+      message.textContent = '加油，保持专注！';
+      // 用时间戳记录结束时刻，避免 setInterval 不准导致的误差
+      endTime = Date.now() + totalSeconds * 1000;
+      timerId = setInterval(tick, 200); // 每 0.2 秒刷新一次
+      tick();                     // 立即刷新一次
+    }
+
+    // ========== 每秒执行的逻辑 ==========
+    function tick() {
+      // 根据时间戳精确计算剩余秒数
+      totalSeconds = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      updateDisplay();
+
+      // 倒计时结束
+      if (totalSeconds <= 0) {
+        pause();
+        // 根据当前模式切换 专注 / 休息
+        if (currentMode === 'focus') {
+          currentMode = 'break';
+          totalSeconds = BREAK_TIME;
+          modeText.textContent = '休息时间';
+          message.textContent = '专注结束，休息一下吧！';
+        } else {
+          currentMode = 'focus';
+          totalSeconds = FOCUS_TIME;
+          modeText.textContent = '专注时间';
+          message.textContent = '休息结束，开始新的番茄！';
+        }
+        updateDisplay();
+        playDing(); // 播放「叮咚」提醒音
+        if (navigator.vibrate) navigator.vibrate(300); // 手机震动提醒
+      }
+    }
+
+    // ========== 暂停 ==========
+    function pause() {
+      clearInterval(timerId);     // 清除定时器
+      timerId = null;
+      isRunning = false;
+      message.textContent = '已暂停，休息一下再继续吧';
+    }
+
+    // ========== 重置 ==========
+    function reset() {
+      clearInterval(timerId);     // 先停止定时器
+      timerId = null;
+      isRunning = false;
+      currentMode = 'focus';      // 回到专注模式
+      totalSeconds = FOCUS_TIME;  // 回到 25 分钟
+      modeText.textContent = '专注时间';
+      message.textContent = '\u00A0';
+      updateDisplay();
+    }
+
+    // ========== 应用新时长设置 ==========
+    function applySettings() {
+      // parseInt 把输入框里的文字转成整数
+      const focus = parseInt(focusInput.value, 10);
+      const brk = parseInt(breakInput.value, 10);
+
+      // 检查输入是否合法（1~120 之间的整数）
+      if (!focus || focus < 1 || focus > 120 || !brk || brk < 1 || brk > 120) {
+        message.textContent = '请输入 1~120 之间的整数分钟';
+        return;
+      }
+
+      clearInterval(timerId);     // 停止当前倒计时
+      timerId = null;
+      isRunning = false;
+
+      FOCUS_TIME = focus * 60;    // 分钟换算成秒
+      BREAK_TIME = brk * 60;
+      currentMode = 'focus';      // 应用后回到专注模式
+      totalSeconds = FOCUS_TIME;
+      modeText.textContent = '专注时间';
+      message.textContent = '已更新时长，测试一下！';
+      updateDisplay();
+    }
+
+    // ========== 绑定按钮事件 ==========
+    document.getElementById('btnStart').addEventListener('click', start);
+    document.getElementById('btnPause').addEventListener('click', pause);
+    document.getElementById('btnReset').addEventListener('click', reset);
+    document.getElementById('btnApply').addEventListener('click', applySettings);
+
+    // 页面加载时先显示一次
+    updateDisplay();
+  </script>
+</body>
+</html>
